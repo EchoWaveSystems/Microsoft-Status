@@ -12,7 +12,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="ms-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <div>
+      <div class="brand-text">
         <div class="brand-title">Microsoft Status Board</div>
         <div class="brand-sub" id="refreshedLabel">Loading…</div>
       </div>
@@ -73,7 +73,13 @@
         <div class="consumer-grid" id="consumer"></div>
       </section>
       <section>
-        <div class="section-head"><h2>Change timeline</h2><span class="muted small">recorded by this board</span></div>
+        <div class="section-head">
+          <h2>Change timeline</h2>
+          <div class="timeline-actions">
+            <span class="muted small">recorded by this board</span>
+            <button class="link-btn small" id="downloadHistoryLink" title="Download history.json">Download JSON</button>
+          </div>
+        </div>
         <ol class="timeline" id="timeline"></ol>
       </section>
     </div>

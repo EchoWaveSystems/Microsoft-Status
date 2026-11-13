@@ -44,14 +44,15 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand-title { font-weight: 600; font-size: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
+.brand-text { min-width: 0; overflow: hidden; }
+.brand-title { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-sub { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms-logo { display: grid; grid-template-columns: 11px 11px; gap: 2px; flex: none; }
 .ms-logo i { width: 11px; height: 11px; display: block; }
 .ms-logo i:nth-child(1) { background: #f25022; } .ms-logo i:nth-child(2) { background: #7fba00; }
 .ms-logo i:nth-child(3) { background: #00a4ef; } .ms-logo i:nth-child(4) { background: #ffb900; }
-.actions { display: flex; align-items: center; gap: 6px; }
+.actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .icon-btn, .refresh-btn {
   width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); display: grid; place-items: center; cursor: pointer; position: relative; padding: 0;
@@ -198,11 +199,25 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16
 .skeleton { background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 16px; min-height: 150px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+.timeline-actions { display: flex; gap: 8px; align-items: baseline; }
+
 @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  #testNotifyBtn { display: none; }
+}
 @media (max-width: 560px) {
+  .topbar { padding: 10px 14px; gap: 8px; }
+  .brand { gap: 8px; }
+  .brand-title { font-size: 15px; }
+  .brand-sub { font-size: 12px; }
+  .actions { gap: 4px; }
+  .icon-btn, .refresh-btn { width: 34px; height: 34px; border-radius: 8px; }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .refresh-btn .ring { inset: 1px; width: 30px; height: 30px; }
+  .refresh-icon { width: 14px; height: 14px; }
+  #copyBtn, #testNotifyBtn, #downloadHistoryBtn { display: none; }
   .hero { padding: 20px; } .hero-icon { width: 46px; height: 46px; }
   .kpis { grid-template-columns: 1fr 1fr; } .kpi-value { font-size: 22px; }
   .inc-head, .inc-body { padding-left: 16px; padding-right: 16px; }
-  #copyBtn { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

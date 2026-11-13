@@ -528,7 +528,7 @@ function initControls() {
   };
 
   // Fetch first so a missing file shows a toast instead of downloading an error body.
-  document.getElementById('downloadHistoryBtn').onclick = async () => {
+  const handleDownloadHistory = async () => {
     try {
       const r = await fetch('/api/history/download');
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `server returned ${r.status}`);
@@ -544,6 +544,10 @@ function initControls() {
       toast(`Download failed: ${e.message}`);
     }
   };
+  const dlBtn = document.getElementById('downloadHistoryBtn');
+  if (dlBtn) dlBtn.onclick = handleDownloadHistory;
+  const dlLink = document.getElementById('downloadHistoryLink');
+  if (dlLink) dlLink.onclick = handleDownloadHistory;
 
   document.getElementById('refreshBtn').onclick = () => load(true);
   document.getElementById('copyBtn').onclick = async () => {
