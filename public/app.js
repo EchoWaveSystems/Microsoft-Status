@@ -115,8 +115,11 @@ function ago(d) {
   return `${Math.round(s / 86400)} d ago`;
 }
 function duration(ms) {
-  const m = Math.max(0, Math.round(Math.abs(ms) / 60000));
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+  const totalSec = Math.max(0, Math.floor(Math.abs(ms) / 1000));
+  const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSec % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
 }
 const fmt = (d) => d ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
