@@ -1,6 +1,6 @@
 {
   "name": "microsoft-status-board",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "private": true,
   "description": "Live dashboard for status.cloud.microsoft (M365, consumer, Azure, Power Platform)",
   "main": "server.js",
