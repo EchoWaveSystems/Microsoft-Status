@@ -14,6 +14,13 @@ No dependencies; Node 18+.
 | `HOST`          | `127.0.0.1` | Interface to listen on. `0.0.0.0` makes the board reachable on the LAN |
 | `ALLOWED_HOSTS` | (none)      | Extra comma-separated Host names to accept, e.g. `mypc,192.168.1.20`   |
 | `POLL_SECONDS`  | `60`        | How often the server polls Microsoft (minimum 30)                       |
+| `AUTH_USERNAME` | (none)      | Enable authentication with required username                            |
+| `AUTH_PASSWORD` | (none)      | Optional password requirement. If omitted, asks for username only       |
+
+Authentication modes:
+- **No authentication**: Leave `AUTH_USERNAME` empty.
+- **Username only**: Set `AUTH_USERNAME=admin` (leave `AUTH_PASSWORD` empty).
+- **Username + Password**: Set both `AUTH_USERNAME=admin` and `AUTH_PASSWORD=secret`.
 
 To share the board on your network:
 

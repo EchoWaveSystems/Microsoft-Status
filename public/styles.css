@@ -24,6 +24,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--text);
@@ -238,6 +239,85 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16
 .more-item:hover, .more-item:active { background: var(--surface-2); }
 .more-item svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
 
+/* Login Modal */
+.login-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  display: grid; place-items: center; padding: 20px;
+  animation: fade-in .2s ease-out;
+}
+.login-backdrop[hidden] { display: none; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.login-card {
+  width: 100%; max-width: 380px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; box-shadow: var(--shadow), 0 12px 36px rgba(0,0,0,.15);
+  padding: 32px 28px; display: flex; flex-direction: column; gap: 20px;
+  animation: modal-pop .25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modal-pop {
+  from { opacity: 0; transform: scale(.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.login-brand { display: flex; align-items: center; gap: 12px; }
+.login-brand h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.login-sub { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
+
+.login-error {
+  background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad);
+  padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 500;
+}
+.login-error[hidden] { display: none; }
+
+.login-form { display: flex; flex-direction: column; gap: 16px; }
+
+.input-group { display: flex; flex-direction: column; gap: 6px; }
+.input-group[hidden] { display: none; }
+.input-group label { font-size: 13px; font-weight: 600; color: var(--text); }
+.input-group input {
+  width: 100%; height: 40px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); border-radius: 10px; padding: 0 14px; font: inherit; font-size: 14px;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.input-group input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.password-wrap {
+  position: relative; display: flex; align-items: center; width: 100%;
+}
+.password-wrap input {
+  padding-right: 42px;
+}
+.eye-btn {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 42px;
+  background: none; border: none; padding: 0; margin: 0;
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--muted); border-radius: 0 10px 10px 0;
+  transition: color .15s;
+}
+.eye-btn:hover { color: var(--text); }
+.eye-btn svg { width: 18px; height: 18px; flex: none; stroke-width: 2; }
+
+.remember-row {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+  cursor: pointer; user-select: none;
+}
+.remember-row input { cursor: pointer; accent-color: var(--accent); }
+
+.login-btn {
+  height: 42px; border-radius: 10px; border: 0; background: var(--accent); color: #fff;
+  font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+  display: grid; place-items: center; transition: opacity .15s, transform .1s; margin-top: 4px;
+}
+.login-btn:hover { opacity: .92; }
+.login-btn:active { transform: scale(.98); }
+.login-btn:disabled { opacity: .6; cursor: not-allowed; }
+
 @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   #testNotifyBtn { display: none; }
@@ -255,7 +335,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16
   .refresh-btn .ring { inset: 1px; width: 30px; height: 30px; }
   .refresh-icon { width: 14px; height: 14px; }
   .more-wrap { display: block; }
-  #copyBtn, #testNotifyBtn, #downloadHistoryBtn, #themeBtn { display: none; }
+  #copyBtn, #testNotifyBtn, #downloadHistoryBtn, #themeBtn, #logoutBtn { display: none; }
   .hero { padding: 20px; } .hero-icon { width: 46px; height: 46px; }
   .kpis { grid-template-columns: 1fr 1fr; } .kpi-value { font-size: 22px; }
   .inc-head, .inc-body { padding-left: 16px; padding-right: 16px; }

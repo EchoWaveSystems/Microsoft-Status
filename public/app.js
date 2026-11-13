@@ -447,6 +447,55 @@ function detectChanges() {
   state.fingerprints = Object.fromEntries(Object.entries(now).map(([k, i]) => [k, { fp: i.fp, status: i.status }]));
 }
 
+/* ---------- authentication ---------- */
+
+const authState = { enabled: false, requiresPassword: false };
+
+function getAuthToken() {
+  return sessionStorage.getItem('msb-token') || localStorage.getItem('msb-token') || '';
+}
+
+function setAuthToken(token, remember = false) {
+  if (remember) {
+    localStorage.setItem('msb-token', token);
+  } else {
+    sessionStorage.setItem('msb-token', token);
+    localStorage.removeItem('msb-token');
+  }
+}
+
+function clearAuthToken() {
+  sessionStorage.removeItem('msb-token');
+  localStorage.removeItem('msb-token');
+}
+
+function authHeaders() {
+  const token = getAuthToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function showLoginModal(show = true, errorMsg = '') {
+  const modal = document.getElementById('loginModal');
+  const errBox = document.getElementById('loginError');
+  if (!modal) return;
+  modal.hidden = !show;
+  if (errBox) {
+    errBox.hidden = !errorMsg;
+    errBox.textContent = errorMsg;
+  }
+  if (show) {
+    const userInput = document.getElementById('loginUsername');
+    if (userInput) setTimeout(() => userInput.focus(), 50);
+  }
+}
+
+function updateLogoutButtons(visible) {
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.hidden = !visible;
+  const menuLogoutBtn = document.getElementById('menuLogoutBtn');
+  if (menuLogoutBtn) menuLogoutBtn.hidden = !visible;
+}
+
 function toast(text) {
   const t = h('div', { class: 'toast' }, text);
   document.getElementById('toasts').append(t);
@@ -459,10 +508,20 @@ async function load(force = false) {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   try {
-    const [status, hist] = await Promise.all([
-      fetch(`/api/status${force ? '?refresh=1' : ''}`).then((r) => { if (!r.ok) throw new Error(`/api/status returned ${r.status}`); return r.json(); }),
-      fetch('/api/history').then((r) => r.ok ? r.json() : { events: [] }),
+    const headers = authHeaders();
+    const [resStatus, resHist] = await Promise.all([
+      fetch(`/api/status${force ? '?refresh=1' : ''}`, { headers }),
+      fetch('/api/history', { headers }),
     ]);
+    if (resStatus.status === 401 || resHist.status === 401) {
+      clearAuthToken();
+      updateLogoutButtons(false);
+      showLoginModal(true, 'Session expired or unauthorized. Please sign in.');
+      return;
+    }
+    if (!resStatus.ok) throw new Error(`/api/status returned ${resStatus.status}`);
+    const status = await resStatus.json();
+    const hist = resHist.ok ? await resHist.json() : { events: [] };
     state.data = status;
     state.history = hist.events || [];
     state.pollSeconds = status.pollSeconds || 60;
@@ -487,7 +546,12 @@ function tick() {
   if (state.data) document.getElementById('refreshedLabel').textContent =
     //`Updated ${ago(validDate(state.data.lastPollAt))} · 
     `Refresh in ${Math.ceil(left / 1000)}s`;
-  if (left === 0 && state.nextRefreshAt) { state.nextRefreshAt = 0; load(); }
+  if (left === 0 && state.nextRefreshAt) {
+    state.nextRefreshAt = 0;
+    if (!authState.enabled || getAuthToken()) {
+      load();
+    }
+  }
 }
 
 function summaryText() {
@@ -552,7 +616,13 @@ function initControls() {
   // Fetch first so a missing file shows a toast instead of downloading an error body.
   const handleDownloadHistory = async () => {
     try {
-      const r = await fetch('/api/history/download');
+      const r = await fetch('/api/history/download', { headers: authHeaders() });
+      if (r.status === 401) {
+        clearAuthToken();
+        updateLogoutButtons(false);
+        showLoginModal(true, 'Session expired or unauthorized. Please sign in.');
+        return;
+      }
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `server returned ${r.status}`);
       const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || 'history.json';
       const url = URL.createObjectURL(await r.blob());
@@ -575,7 +645,13 @@ function initControls() {
   if (gitBtn) {
     gitBtn.onclick = async () => {
       try {
-        const res = await fetch('/api/git-status');
+        const res = await fetch('/api/git-status', { headers: authHeaders() });
+        if (res.status === 401) {
+          clearAuthToken();
+          updateLogoutButtons(false);
+          showLoginModal(true, 'Session expired or unauthorized. Please sign in.');
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         renderGitStatus(data);
@@ -649,7 +725,118 @@ function initControls() {
   }
 }
 
-document.getElementById('platforms').replaceChildren(...ORDER.map(() => h('div', { class: 'skeleton' })));
-initControls();
-load();
-setInterval(tick, 1000);
+function initAuth() {
+  const loginForm = document.getElementById('loginForm');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+
+  if (loginForm) {
+    loginForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const username = (document.getElementById('loginUsername')?.value || '').trim();
+      const password = loginPassword ? loginPassword.value : '';
+      const remember = document.getElementById('loginRemember')?.checked || false;
+
+      loginSubmitBtn.disabled = true;
+      loginSubmitBtn.textContent = 'Signing in…';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          showLoginModal(true, data.error || 'Authentication failed');
+          return;
+        }
+        setAuthToken(data.token, remember);
+        showLoginModal(false);
+        updateLogoutButtons(true);
+        load(true);
+      } catch (err) {
+        showLoginModal(true, `Connection error: ${err.message}`);
+      } finally {
+        loginSubmitBtn.disabled = false;
+        loginSubmitBtn.textContent = 'Sign in';
+      }
+    };
+  }
+
+  const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+  if (togglePasswordBtn && loginPassword) {
+    togglePasswordBtn.onclick = () => {
+      const isPass = loginPassword.type === 'password';
+      loginPassword.type = isPass ? 'text' : 'password';
+      togglePasswordBtn.title = isPass ? 'Hide password' : 'Show password';
+      togglePasswordBtn.setAttribute('aria-label', togglePasswordBtn.title);
+      const iconEye = togglePasswordBtn.querySelector('.icon-eye');
+      const iconEyeOff = togglePasswordBtn.querySelector('.icon-eye-off');
+      if (iconEye) iconEye.hidden = isPass;
+      if (iconEyeOff) iconEyeOff.hidden = !isPass;
+      loginPassword.focus();
+    };
+  }
+
+  const handleLogout = () => {
+    clearAuthToken();
+    updateLogoutButtons(false);
+    showLoginModal(true);
+  };
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.onclick = handleLogout;
+  const menuLogout = document.getElementById('menuLogoutBtn');
+  if (menuLogout) menuLogout.onclick = () => {
+    const moreMenu = document.getElementById('moreMenu');
+    if (moreMenu) moreMenu.hidden = true;
+    handleLogout();
+  };
+}
+
+async function startApp() {
+  document.getElementById('platforms').replaceChildren(...ORDER.map(() => h('div', { class: 'skeleton' })));
+  initControls();
+  initAuth();
+
+  try {
+    const res = await fetch('/api/auth/mode');
+    if (res.ok) {
+      const mode = await res.json();
+      authState.enabled = Boolean(mode.enabled);
+      authState.requiresPassword = Boolean(mode.requiresPassword);
+    }
+  } catch (e) {
+    console.warn('[auth] could not query auth mode:', e);
+  }
+
+  const passwordGroup = document.getElementById('passwordGroup');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginSub = document.getElementById('loginSub');
+
+  if (passwordGroup && loginPassword) {
+    passwordGroup.hidden = !authState.requiresPassword;
+    loginPassword.required = authState.requiresPassword;
+    if (!authState.requiresPassword && loginSub) {
+      loginSub.textContent = 'Enter username to continue';
+    }
+  }
+
+  if (authState.enabled) {
+    const token = getAuthToken();
+    if (token) {
+      updateLogoutButtons(true);
+      load();
+    } else {
+      updateLogoutButtons(false);
+      showLoginModal(true);
+    }
+  } else {
+    updateLogoutButtons(false);
+    load();
+  }
+
+  setInterval(tick, 1000);
+}
+
+startApp();

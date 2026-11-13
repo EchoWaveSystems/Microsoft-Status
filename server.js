@@ -5,12 +5,133 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { execSync } = require('node:child_process');
+
+// Auto-load .env file if present
+try {
+  const envFile = path.join(__dirname, '.env');
+  if (fs.existsSync(envFile)) {
+    const content = fs.readFileSync(envFile, 'utf8');
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq > 0) {
+        const key = line.slice(0, eq).trim();
+        let val = line.slice(eq + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch (e) {
+  console.warn('[env] error reading .env:', e.message);
+}
 
 let APP_VERSION = '1.0.0';
 try {
   APP_VERSION = process.env.APP_VERSION || require('./package.json').version || '1.0.0';
 } catch {}
+
+const AUTH_USER = (process.env.AUTH_USERNAME || process.env.AUTH_USER || '').trim();
+const AUTH_PASS = (process.env.AUTH_PASSWORD || process.env.AUTH_PASS || '').trim();
+const AUTH_ENABLED = Boolean(AUTH_USER);
+const AUTH_REQUIRES_PASS = AUTH_ENABLED && Boolean(AUTH_PASS);
+
+const DATA_DIR = path.join(__dirname, 'data');
+const AUTH_SECRET_FILE = path.join(DATA_DIR, 'auth.secret');
+let AUTH_SECRET = process.env.AUTH_SECRET || '';
+if (!AUTH_SECRET) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (fs.existsSync(AUTH_SECRET_FILE)) {
+      AUTH_SECRET = fs.readFileSync(AUTH_SECRET_FILE, 'utf8').trim();
+    } else {
+      AUTH_SECRET = crypto.randomBytes(32).toString('hex');
+      fs.writeFileSync(AUTH_SECRET_FILE, AUTH_SECRET, 'utf8');
+    }
+  } catch {
+    AUTH_SECRET = crypto.randomBytes(32).toString('hex');
+  }
+}
+
+function createToken(username) {
+  const payload = Buffer.from(JSON.stringify({
+    u: username,
+    exp: Date.now() + 7 * 24 * 3600 * 1000,
+  })).toString('base64url');
+  const sig = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifyToken(token) {
+  if (!AUTH_ENABLED) return true;
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payload, sig] = parts;
+  const expectedSig = crypto.createHmac('sha256', AUTH_SECRET).update(payload).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    return false;
+  }
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (data.exp && data.exp < Date.now()) return false;
+    if (data.u !== AUTH_USER) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function checkCredentials(username, password) {
+  if (!AUTH_ENABLED) return true;
+  const u = String(username || '').trim();
+  const p = String(password || '').trim();
+  const uBuf = Buffer.from(u);
+  const authUserBuf = Buffer.from(AUTH_USER);
+  if (uBuf.length !== authUserBuf.length || !crypto.timingSafeEqual(uBuf, authUserBuf)) {
+    return false;
+  }
+  if (AUTH_REQUIRES_PASS) {
+    const pBuf = Buffer.from(p);
+    const authPassBuf = Buffer.from(AUTH_PASS);
+    if (pBuf.length !== authPassBuf.length || !crypto.timingSafeEqual(pBuf, authPassBuf)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function readBodyJson(req, maxBytes = 10000) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let bytes = 0;
+    req.on('data', (chunk) => {
+      bytes += chunk.length;
+      if (bytes > maxBytes) {
+        req.destroy();
+        return reject(new Error('payload too large'));
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch {
+        reject(new Error('invalid json'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
 
 function getGitStatus() {
   try {
@@ -39,7 +160,6 @@ const MIN_FORCED_REFRESH_MS = 15000;     // ?refresh=1 is public, so it is throt
 const MAX_UPSTREAM_BYTES = 5 * 1024 * 1024;
 const UPSTREAM = 'https://status.cloud.microsoft/api/posts/';
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const DATA_DIR = path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const HISTORY_CAP = 1000;
 
@@ -193,7 +313,7 @@ const pollOnce = () => (inflight ??= poll().finally(() => { inflight = null; }))
 // Applied to every response. The page has no inline script or style attributes, so the policy can be strict.
 const SECURITY_HEADERS = {
   'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
-    "connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
   'referrer-policy': 'no-referrer',
@@ -258,11 +378,50 @@ const server = http.createServer(async (req, res) => {
     // domain at 127.0.0.1 and read this board from the victim's browser.
     const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
     if (!ALLOWED_HOSTS.has(host)) return sendJson(res, 421, { error: 'unrecognised host' });
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.setHeader('allow', 'GET, HEAD');
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'POST') {
+      res.setHeader('allow', 'GET, HEAD, POST');
       return sendJson(res, 405, { error: 'method not allowed' });
     }
     const { pathname, searchParams } = new URL(req.url, 'http://x');
+
+    // Public auth configuration check
+    if (pathname === '/api/auth/mode') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.setHeader('allow', 'GET, HEAD');
+        return sendJson(res, 405, { error: 'method not allowed' });
+      }
+      return sendJson(res, 200, {
+        enabled: AUTH_ENABLED,
+        requiresPassword: AUTH_REQUIRES_PASS,
+      });
+    }
+
+    // Public login endpoint
+    if (pathname === '/api/auth/login') {
+      if (req.method !== 'POST') {
+        res.setHeader('allow', 'POST');
+        return sendJson(res, 405, { error: 'method not allowed' });
+      }
+      if (!AUTH_ENABLED) {
+        return sendJson(res, 200, { ok: true, token: 'no-auth' });
+      }
+      const data = await readBodyJson(req).catch(() => null);
+      if (!data) return sendJson(res, 400, { error: 'invalid request body' });
+      if (!checkCredentials(data.username, data.password)) {
+        return sendJson(res, 401, { error: AUTH_REQUIRES_PASS ? 'Invalid username or password' : 'Invalid username' });
+      }
+      const token = createToken(AUTH_USER);
+      return sendJson(res, 200, { ok: true, token, username: AUTH_USER });
+    }
+
+    // Auth verification for all protected API endpoints
+    if (pathname.startsWith('/api/')) {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.headers['x-auth-token'] || '');
+      if (AUTH_ENABLED && !verifyToken(token)) {
+        return sendJson(res, 401, { error: 'unauthorized' });
+      }
+    }
 
     if (pathname === '/api/status') {
       const wantsRefresh = searchParams.get('refresh') === '1' && Date.now() - lastPollStartedMs >= MIN_FORCED_REFRESH_MS;
@@ -296,7 +455,8 @@ server.maxHeadersCount = 50;
 
 server.listen(PORT, HOST, () => {
   const shown = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
-  console.log(`Microsoft Status Board v${APP_VERSION} → http://${shown}:${PORT}  (polling every ${POLL_MS / 1000}s)`);
+  const authMode = !AUTH_ENABLED ? 'disabled' : AUTH_REQUIRES_PASS ? 'username + password' : 'username only';
+  console.log(`Microsoft Status Board v${APP_VERSION} → http://${shown}:${PORT}  (polling every ${POLL_MS / 1000}s, auth: ${authMode})`);
   if (shown !== HOST) console.log(`[security] listening on all interfaces; accepted Host names: ${[...ALLOWED_HOSTS].join(', ')}`);
   pollOnce();
   setInterval(pollOnce, POLL_MS);
