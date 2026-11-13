@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Microsoft Status Board</title>
+  <link rel="icon" id="favicon" href="data:," />
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    try { const t = localStorage.getItem('msb-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="ms-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div>
+        <div class="brand-title">Microsoft Status Board</div>
+        <div class="brand-sub" id="refreshedLabel">Loading…</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="copyBtn" title="Copy a plain-text summary">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      </button>
+      <button class="icon-btn" id="notifyBtn" title="Desktop notifications on status change">
+        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <button class="icon-btn" id="testNotifyBtn" title="Send a test desktop notification now">
+        <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      </button>
+      <button class="refresh-btn" id="refreshBtn" title="Refresh now">
+        <svg class="ring" viewBox="0 0 36 36"><circle class="ring-track" cx="18" cy="18" r="15.5"/><circle class="ring-fill" id="ringFill" cx="18" cy="18" r="15.5"/></svg>
+        <svg class="refresh-icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="hero-main">
+        <div class="hero-icon" id="heroIcon"></div>
+        <div>
+          <h1 id="heroTitle">Checking Microsoft services…</h1>
+          <p id="heroSub" class="muted"></p>
+        </div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <div class="error-bar" id="errorBar" hidden></div>
+
+    <section>
+      <div class="section-head"><h2>Platforms</h2></div>
+      <div class="platforms" id="platforms"></div>
+    </section>
+
+    <section id="incidentsSection">
+      <div class="section-head">
+        <h2>Active incidents</h2>
+        <span class="muted small" id="incidentCount"></span>
+      </div>
+      <div id="incidents"></div>
+    </section>
+
+    <div class="two-col">
+      <section>
+        <div class="section-head"><h2>Consumer services</h2><span class="muted small" id="consumerCount"></span></div>
+        <div class="consumer-grid" id="consumer"></div>
+      </section>
+      <section>
+        <div class="section-head"><h2>Change timeline</h2><span class="muted small">recorded by this board</span></div>
+        <ol class="timeline" id="timeline"></ol>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    Data from <a href="https://status.cloud.microsoft/" target="_blank" rel="noopener">status.cloud.microsoft</a>.
+    Unofficial viewer; for tenant-specific health use the
+    <a href="https://admin.microsoft.com/servicestatus" target="_blank" rel="noopener">Microsoft 365 admin center</a>.
+  </footer>
+
+  <div class="toast-host" id="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>

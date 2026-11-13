@@ -1,0 +1,83 @@
+{
+  "events": [
+    {
+      "at": "2026-11-13T03:26:59.198Z",
+      "kind": "observed",
+      "feed": "mac",
+      "service": "Microsoft 365 (Business or Enterprise)",
+      "to": "Service degradation",
+      "title": "Users may be unable to connect to multiple Microsoft 365 services"
+    },
+    {
+      "at": "2026-11-13T03:26:59.198Z",
+      "kind": "observed",
+      "feed": "m365Consumer",
+      "service": "Microsoft 365 (Consumer)",
+      "to": "Service degradation",
+      "title": "Users may be unable to access or perform several actions in Microsoft 365 services"
+    },
+    {
+      "at": "2026-11-13T03:37:59.429Z",
+      "kind": "update",
+      "feed": "mac",
+      "service": "Microsoft 365 (Business or Enterprise)",
+      "from": "Service degradation",
+      "to": "Service degradation",
+      "title": "Users may be unable to connect to multiple Microsoft 365 services"
+    }
+  ],
+  "fingerprints": {
+    "mac:mac": {
+      "fp": "Service degradation␞Users may be unable to connect to multiple Microsoft 365 services␞<div>More info: Features of the Microsoft 365 services below that interact with Exchange Online and email services are impacted. Elements of those services that do not depend on interaction with Exchange Online remain functional.<div>&nbsp;</div><div>- Exchange Online: Users may be unable to access their mailbox using Outlook on the web, Outlook desktop (MAPI), Exchange ActiveSync (EAS), or REST-based connections, and email delivery may be delayed.</div><div>- Microsoft 365 admin center: Admins may be unable to load some admin center pages.</div><div>- Microsoft 365 apps: Users may be unable to view their recently used files.</div><div>- Microsoft 365 Apps Admin Center: Multiple services including Cloud Update, Cloud Policy, and Inventory are affected.</div><div>- Microsoft 365 Education: Features including Assignments, Reading Progress, and Speaker Progress may be impacted.</div><div>- Microsoft Copilot 365: Users may be unable to load Copilot Chat or receive responses in the web and desktop apps, and Copilot experiences may be unable to access work data such as email, calendar, and files.</div><div>- Microsoft Defender for Office 365: Safe Links may be unable to verify URLs, which may impact users clicking links in Outlook and Teams.</div><div>- Microsoft Defender XDR: Users may be unable to load Microsoft Defender portal pages or solution tabs.</div><div>- Microsoft Fabric: Users may encounter failures when exporting reports with sensitivity labels to PDF or PowerPoint, when updating artifacts with sensitivity labels, or opening pbix with sensitivity label in Power BI Desktop. As a workaround, users can remove the sensitivity label from the affected item to complete the operation, if their organization's data protection policies allow it.</div><div>- Microsoft Graph: API requests that access Exchange Online data, such as mail, calendar, and contacts, may time out and prevent users from managing Teams, Channels, Membership, Apps management and send activity notifications using Graph API.</div><div>- Microsoft Intune: Scenarios including device enrollment, device check-in, and device compliance policies may have been intermittently impacted.</div><div>- Microsoft Planner: Users are experiencing Plan and Task operation reliability issues.</div><div>- Microsoft Purview: Multiple Purview services including Authorization, auto-labeling, Data Loss Prevention (DLP) across Microsoft 365 services, Communication Compliance, Information Protection label and auto-labeling policies, Role-Based Access Control (RBAC) and Data Classification are impacted, and users may be unable to open or load Microsoft Purview portal pages or protected content. Audit searches, protected content creation, eDiscovery tasks such as search and export, Data Classification and On Demand Scan features may also be impacted.</div><div>- Microsoft Teams: Most of the core functionality including joining calls, meetings, group chats, and channel messages are not impacted. Scenarios that depend on Exchange Online, including Calendar related failures with scheduling, invites, viewing, and meeting edits. Creation of Live or Virtual events fail. Failures with Copilot responses for outlook, calendar, or M365 files, read history, or adding to new chats. Navigating to App chats, adding new contacts or syncing contacts in settings fail. Standard channels are working fine but users may experience the inability to create or delete private or shared channels. </div><div>- Microsoft To Do: The app may not load, and users may see operation failures.</div><div>- Power BI: All users may intermittently be unable to export reports with MIP sensitivity labels to PDF in Power BI.</div><div>- SharePoint Online: Features that depend on Exchange Online may be impacted. Accessing files stored directly in SharePoint Online remains functional.</div><div>- Universal Print: Users may encounter errors submitting print jobs or using admin features.</div><div>- Windows 365: Customers who have configured their tenant and Cloud PCs to use Microsoft Purview Customer Key for Windows 365 Cloud PCs may have users who are unable to connect to their Cloud PCs.</div><div><br></div><div>Current status: As part of our investigation into the sustained traffic management imbalances, we’re reviewing traffic flows and affected infrastructure to identify opportunities to optimize routing. This includes verifying the reasons for service failures so we can develop specific actions to improve stability.</div><div><br></div><div>Previous status<span>: We’ve monitored the status of the changes applied to improve serviceability and confirmed that change is not taking as expected. We’re identifying alternate workstreams that can be applied to increase capacity in the face of sustained traffic management imbalances.</span></div><div><br></div><div>Scope of impact: This issue may affect users attempting to access the affected Microsoft 365 services.</div><div><br></div>Next update by: Friday, November 13, 2026, at 4:30 AM UTC<br></div>",
+      "status": "Service degradation"
+    },
+    "m365Consumer:M365Consumer": {
+      "fp": "Service degradation␞Users may be unable to access or perform several actions in Microsoft 365 services␞User impact: Users may be unable to access or perform several actions in Microsoft 365 services.\r\n\r\nCurrent status: We're continuing to test the viability of recovery options. This issue impacts Outlook.com, OneDrive, OneNotem To Do, Teams, and Microsoft 365 for the web' although you may also see issues in other Microsoft 365 services could be affected.\r\n\r\nNext update by: Friday, November 13, 2026, at 4:30 AM UTC",
+      "status": "Service degradation"
+    },
+    "m365Consumer:CopilotConsumer": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:ConsumerList": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:TeamsforLife": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:microsofttodo": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:Whiteboard": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:OfficeOnlineConsumer": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:OneDriveConsumer": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:Outlook.com": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "m365Consumer:YourPhone": {
+      "fp": "Operational␞␞",
+      "status": "Operational"
+    },
+    "azure:azure": {
+      "fp": "Available␞␞No Azure issues detected at this time. For more details, please visit the link below.",
+      "status": "Available"
+    },
+    "ppac:ppac": {
+      "fp": "Available␞␞<div><span>This site is updated when service issues are preventing tenant administrators from accessing the Power Platform admin center to view Service health status. Alternatively, customers can navigate to the M365 admin center to view the Service health status for the Power Platform services and Dynamics 365 applications.</span></div>",
+      "status": "Available"
+    }
+  }
+}
