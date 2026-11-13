@@ -125,7 +125,25 @@
       "title": "Users may be unable to connect to multiple Microsoft 365 services"
     },
     {
-      "at": "2026-11-13T09:23:19.420Z",
+      "at": "2026-11-13T07:24:03.616Z",
+      "kind": "update",
+      "feed": "mac",
+      "service": "Microsoft 365 (Business or Enterprise)",
+      "from": "Service degradation",
+      "to": "Service degradation",
+      "title": "Users may be unable to connect to multiple Microsoft 365 services"
+    },
+    {
+      "at": "2026-11-13T09:04:06.558Z",
+      "kind": "update",
+      "feed": "mac",
+      "service": "Microsoft 365 (Business or Enterprise)",
+      "from": "Service degradation",
+      "to": "Service degradation",
+      "title": "Users may be unable to connect to multiple Microsoft 365 services"
+    },
+    {
+      "at": "2026-11-13T09:08:08.622Z",
       "kind": "update",
       "feed": "mac",
       "service": "Microsoft 365 (Business or Enterprise)",
