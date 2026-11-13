@@ -467,7 +467,7 @@ async function load(force = false) {
   } catch (e) {
     const bar = document.getElementById('errorBar');
     bar.hidden = false;
-    bar.textContent = `Could not reach the local status server (${e.message}). Is "node server.js" still running?`;
+    bar.textContent = `Could not reach the local status server (${e.message}). Is app still running?`;
     console.error('[load]', e);
   } finally {
     btn.classList.remove('spinning');
