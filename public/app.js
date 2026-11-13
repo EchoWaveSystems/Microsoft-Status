@@ -358,7 +358,7 @@ function renderIncidents(incidents) {
         (p.impact || p.rest.length) ? h('div', { class: 'sections' }, sectionCallout(p.impact), ...p.rest.map((s) => sectionCallout(s))) : null,
         affectedBlock, fallback,
         h('div', { class: 'small' }, h('a', { href: inc.link, target: '_blank', rel: 'noopener' }, 'Open in Microsoft ↗'), ' · ',
-          h('a', { href: `/api/raw/${inc.feed}`, target: '_blank' }, 'Raw JSON'))),
+          h('a', { href: `/api/raw/${inc.feed}`, target: '_blank', rel: 'noopener' }, 'Raw JSON'))),
     );
   }));
   tickCountdowns();
@@ -525,6 +525,24 @@ function initControls() {
     new Notification(`Microsoft service status (test) — ${incidents.length} active incident${incidents.length === 1 ? '' : 's'}`, { body });
     syncNotify();
     toast('Test notification sent. If nothing appeared, check Windows Focus / Do Not Disturb.');
+  };
+
+  // Fetch first so a missing file shows a toast instead of downloading an error body.
+  document.getElementById('downloadHistoryBtn').onclick = async () => {
+    try {
+      const r = await fetch('/api/history/download');
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `server returned ${r.status}`);
+      const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || 'history.json';
+      const url = URL.createObjectURL(await r.blob());
+      const a = h('a', { href: url, download: name });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(`Downloaded ${name}.`);
+    } catch (e) {
+      toast(`Download failed: ${e.message}`);
+    }
   };
 
   document.getElementById('refreshBtn').onclick = () => load(true);

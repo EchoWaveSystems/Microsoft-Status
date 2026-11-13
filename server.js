@@ -7,7 +7,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PORT = Number(process.env.PORT) || 5050;
-const POLL_MS = Number(process.env.POLL_SECONDS || 60) * 1000;
+// Loopback by default so nobody else on the network can reach the board. Set HOST=0.0.0.0 to share it,
+// and list the names people will use in ALLOWED_HOSTS (see README).
+const HOST = process.env.HOST || '127.0.0.1';
+const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]',
+  ...String(process.env.ALLOWED_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)]);
+// Never poll faster than every 30s, whatever the env says; a typo of 0 would otherwise hammer Microsoft.
+const POLL_MS = Math.max(30, Number(process.env.POLL_SECONDS) || 60) * 1000;
+const MIN_FORCED_REFRESH_MS = 15000;     // ?refresh=1 is public, so it is throttled
+const MAX_UPSTREAM_BYTES = 5 * 1024 * 1024;
 const UPSTREAM = 'https://status.cloud.microsoft/api/posts/';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const DATA_DIR = path.join(__dirname, 'data');
@@ -20,17 +28,22 @@ const FEEDS = {
   azure:        { name: 'Azure',                                  link: 'https://azure.status.microsoft/en-us/status' },
   ppac:         { name: 'Power Platform & Dynamics 365',          link: 'https://admin.powerplatform.microsoft.com/' },
 };
+const isFeed = (name) => Object.hasOwn(FEEDS, name);
 
 const cache = {};        // feed -> { ok, data, error, fetchedAt }
 let lastPollAt = null;
+let lastPollStartedMs = 0;
 let history = loadHistory();
 
 function loadHistory() {
   try {
     const parsed = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-    return { events: parsed.events || [], fingerprints: parsed.fingerprints || {} };
-  } catch {
-    return { events: [], fingerprints: {} };
+    const events = Array.isArray(parsed?.events) ? parsed.events : [];
+    const fingerprints = parsed?.fingerprints && typeof parsed.fingerprints === 'object' ? parsed.fingerprints : {};
+    return { events, fingerprints: Object.assign(Object.create(null), fingerprints) };
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.warn(`[history] could not read ${HISTORY_FILE}, starting empty: ${e.message}`);
+    return { events: [], fingerprints: Object.create(null) };
   }
 }
 
@@ -49,9 +62,9 @@ function itemsOf(feed, data) {
   return rows.map((r) => ({
     key: `${feed}:${r.ServiceWorkloadName || feed}`,
     feed,
-    service: r.ServiceDisplayName || FEEDS[feed].name,
-    status: r.Status || 'Unknown',
-    title: r.Title || '',
+    service: String(r.ServiceDisplayName || FEEDS[feed].name),
+    status: String(r.Status || 'Unknown'),
+    title: String(r.Title || ''),
     // LastUpdatedTime is "now" on some feeds, so the fingerprint uses content only.
     fingerprint: [r.Status, r.Title, r.Message].join('␞'),
   }));
@@ -85,18 +98,39 @@ function recordChanges(feed, data, at) {
   return { changed, added };
 }
 
+// Reads at most `max` bytes, so a misbehaving upstream cannot exhaust memory.
+async function readCapped(res, max) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of res.body) {
+    size += chunk.length;
+    if (size > max) throw new Error(`response larger than ${max} bytes`);
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+// Upstream is expected to be one post object, or an array of them (consumer feed).
+function assertFeedShape(data) {
+  const isPost = (r) => r && typeof r === 'object' && !Array.isArray(r);
+  if (Array.isArray(data) ? data.every(isPost) : isPost(data)) return data;
+  throw new Error('unexpected response shape');
+}
+
 async function fetchFeed(feed) {
   const res = await fetch(UPSTREAM + feed, {
     headers: { accept: 'application/json', 'user-agent': 'ms-status-board/1.0' },
+    redirect: 'error',
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${UPSTREAM + feed}`);
-  return res.json();
+  return assertFeedShape(JSON.parse(await readCapped(res, MAX_UPSTREAM_BYTES)));
 }
 
 async function poll() {
   const at = new Date().toISOString();
   const started = Date.now();
+  lastPollStartedMs = started;
   console.log(`[poll] ${at} checking ${Object.keys(FEEDS).join(', ')}…`);
   const results = await Promise.allSettled(Object.keys(FEEDS).map(async (feed) => [feed, await fetchFeed(feed)]));
   let changed = false;
@@ -135,45 +169,107 @@ async function poll() {
 let inflight = null;
 const pollOnce = () => (inflight ??= poll().finally(() => { inflight = null; }));
 
-function sendJson(res, code, body) {
-  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(JSON.stringify(body));
+// Applied to every response. The page has no inline script or style attributes, so the policy can be strict.
+const SECURITY_HEADERS = {
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
+    "connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+};
+// Icons opened directly as a document get no script at all, but may keep their own <style> blocks.
+const SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox";
+
+function send(res, code, headers, body) {
+  res.writeHead(code, { ...SECURITY_HEADERS, ...headers });
+  res.end(res.req.method === 'HEAD' ? undefined : body);
 }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+function sendJson(res, code, body) {
+  send(res, code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, JSON.stringify(body));
+}
 
-function serveStatic(req, res) {
-  const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-  const file = path.normalize(path.join(PUBLIC_DIR, urlPath === '/' ? 'index.html' : urlPath));
-  if (!file.startsWith(PUBLIC_DIR)) return sendJson(res, 403, { error: 'forbidden' });
-  fs.readFile(file, (err, buf) => {
-    if (err) return sendJson(res, 404, { error: 'not found' });
-    res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' });
-    res.end(buf);
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png',
+};
+
+function serveStatic(pathname, res) {
+  let urlPath;
+  try { urlPath = decodeURIComponent(pathname); } catch { return sendJson(res, 400, { error: 'bad request' }); }
+  if (urlPath.includes('\0')) return sendJson(res, 400, { error: 'bad request' });
+  const file = path.resolve(PUBLIC_DIR, '.' + path.posix.normalize('/' + (urlPath === '/' ? 'index.html' : urlPath)));
+  // Must be strictly inside public/ — a plain startsWith would also accept a sibling such as "public-old".
+  const type = MIME[path.extname(file).toLowerCase()];
+  if (!file.startsWith(PUBLIC_DIR + path.sep) || !type) return sendJson(res, 404, { error: 'not found' });
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) return sendJson(res, 404, { error: 'not found' });
+    fs.readFile(file, (err2, buf) => {
+      if (err2) return sendJson(res, 404, { error: 'not found' });
+      const extra = type === 'image/svg+xml' ? { 'content-security-policy': SVG_CSP } : {};
+      send(res, 200, { 'content-type': type, 'cache-control': 'no-cache', ...extra }, buf);
+    });
+  });
+}
+
+// The only file the download endpoint can ever return: a fixed path, never built from the request.
+function downloadHistory(res) {
+  fs.readFile(HISTORY_FILE, (err, buf) => {
+    if (err) return sendJson(res, 404, { error: 'history.json has not been written yet — wait for the first poll' });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    send(res, 200, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': `attachment; filename="history-${stamp}.json"`,
+      'cache-control': 'no-store',
+    }, buf);
   });
 }
 
 const server = http.createServer(async (req, res) => {
-  const { pathname, searchParams } = new URL(req.url, 'http://x');
   try {
+    // Rejecting unknown Host headers blocks DNS-rebinding: a malicious site cannot point its own
+    // domain at 127.0.0.1 and read this board from the victim's browser.
+    const host = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, '');
+    if (!ALLOWED_HOSTS.has(host)) return sendJson(res, 421, { error: 'unrecognised host' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.setHeader('allow', 'GET, HEAD');
+      return sendJson(res, 405, { error: 'method not allowed' });
+    }
+    const { pathname, searchParams } = new URL(req.url, 'http://x');
+
     if (pathname === '/api/status') {
-      if (searchParams.get('refresh') === '1' || !lastPollAt) await pollOnce();
+      const wantsRefresh = searchParams.get('refresh') === '1' && Date.now() - lastPollStartedMs >= MIN_FORCED_REFRESH_MS;
+      if (wantsRefresh || !lastPollAt) await pollOnce();
       const feeds = Object.fromEntries(Object.entries(FEEDS).map(([k, meta]) => [k, { ...meta, ...(cache[k] || { ok: false, error: 'not fetched yet' }) }]));
       return sendJson(res, 200, { lastPollAt, pollSeconds: POLL_MS / 1000, feeds });
     }
     if (pathname === '/api/history') {
       return sendJson(res, 200, { events: history.events.slice().reverse() });
     }
+    if (pathname === '/api/history/download') return downloadHistory(res);
     const raw = pathname.match(/^\/api\/raw\/(\w+)$/);
-    if (raw && FEEDS[raw[1]]) return sendJson(res, 200, cache[raw[1]]?.data ?? null);
-    serveStatic(req, res);
+    if (raw && isFeed(raw[1])) return sendJson(res, 200, cache[raw[1]]?.data ?? null);
+    if (pathname.startsWith('/api/')) return sendJson(res, 404, { error: 'not found' });
+    serveStatic(pathname, res);
   } catch (e) {
-    sendJson(res, 500, { error: String(e.message || e) });
+    // Details go to the console only; the client gets a generic message.
+    console.error(`[http] ${req.method} ${req.url} failed:`, e);
+    if (!res.headersSent) sendJson(res, 500, { error: 'internal error' });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Microsoft Status Board → http://localhost:${PORT}  (polling every ${POLL_MS / 1000}s)`);
+// Bound slow or oversized requests (slowloris-style connection hogging).
+server.headersTimeout = 10000;
+server.requestTimeout = 30000;
+server.maxHeadersCount = 50;
+
+server.listen(PORT, HOST, () => {
+  const shown = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+  console.log(`Microsoft Status Board → http://${shown}:${PORT}  (polling every ${POLL_MS / 1000}s)`);
+  if (shown !== HOST) console.log(`[security] listening on all interfaces; accepted Host names: ${[...ALLOWED_HOSTS].join(', ')}`);
   pollOnce();
   setInterval(pollOnce, POLL_MS);
 });

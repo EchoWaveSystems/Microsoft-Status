@@ -6,9 +6,7 @@
   <title>Microsoft Status Board</title>
   <link rel="icon" id="favicon" href="data:," />
   <link rel="stylesheet" href="styles.css" />
-  <script>
-    try { const t = localStorage.getItem('msb-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
-  </script>
+  <script src="theme-init.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -28,6 +26,9 @@
       </button>
       <button class="icon-btn" id="testNotifyBtn" title="Send a test desktop notification now">
         <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+      </button>
+      <button class="icon-btn" id="downloadHistoryBtn" title="Download history.json">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
       </button>
       <button class="icon-btn" id="themeBtn" title="Toggle theme">
         <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
