@@ -91,6 +91,23 @@ function verifyToken(token) {
   }
 }
 
+function parseCookies(header) {
+  const cookies = {};
+  if (!header) return cookies;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    try {
+      cookies[key] = decodeURIComponent(val);
+    } catch {
+      cookies[key] = val;
+    }
+  }
+  return cookies;
+}
+
 function checkCredentials(username, password) {
   if (!AUTH_ENABLED) return true;
   const u = String(username || '').trim();
@@ -417,7 +434,11 @@ const server = http.createServer(async (req, res) => {
     // Auth verification for all protected API endpoints
     if (pathname.startsWith('/api/')) {
       const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.headers['x-auth-token'] || '');
+      let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.headers['x-auth-token'] || '');
+      if (!token && req.headers.cookie) {
+        const cookies = parseCookies(req.headers.cookie);
+        token = cookies['msb-token'] || '';
+      }
       if (AUTH_ENABLED && !verifyToken(token)) {
         return sendJson(res, 401, { error: 'unauthorized' });
       }

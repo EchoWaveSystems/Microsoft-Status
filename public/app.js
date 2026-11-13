@@ -451,21 +451,43 @@ function detectChanges() {
 
 const authState = { enabled: false, requiresPassword: false };
 
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function setCookie(name, value, days = 7) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  const maxAge = days > 0 ? `; max-age=${days * 24 * 60 * 60}` : '; max-age=0';
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax${maxAge}${secure}`;
+}
+
+function eraseCookie(name) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${secure}`;
+}
+
 function getAuthToken() {
-  return sessionStorage.getItem('msb-token') || localStorage.getItem('msb-token') || '';
+  return sessionStorage.getItem('msb-token') || getCookie('msb-token') || localStorage.getItem('msb-token') || '';
 }
 
 function setAuthToken(token, remember = false) {
   if (remember) {
-    localStorage.setItem('msb-token', token);
+    // Checkbox is checked -> store in cookie
+    setCookie('msb-token', token, 7);
+    sessionStorage.removeItem('msb-token');
+    localStorage.removeItem('msb-token');
   } else {
+    // Checkbox is unchecked -> store in session (cleared on tab/browser close)
     sessionStorage.setItem('msb-token', token);
+    eraseCookie('msb-token');
     localStorage.removeItem('msb-token');
   }
 }
 
 function clearAuthToken() {
   sessionStorage.removeItem('msb-token');
+  eraseCookie('msb-token');
   localStorage.removeItem('msb-token');
 }
 
