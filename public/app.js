@@ -554,6 +554,50 @@ function initControls() {
     try { await navigator.clipboard.writeText(summaryText()); toast('Summary copied to clipboard.'); }
     catch (e) { toast(`Copy failed: ${e.message}`); }
   };
+
+  const moreBtn = document.getElementById('moreBtn');
+  const moreMenu = document.getElementById('moreMenu');
+  if (moreBtn && moreMenu) {
+    const toggleMenu = (open) => {
+      const willOpen = typeof open === 'boolean' ? open : moreMenu.hidden;
+      moreMenu.hidden = !willOpen;
+      moreBtn.setAttribute('aria-expanded', String(willOpen));
+      moreBtn.classList.toggle('on', willOpen);
+    };
+    moreBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleMenu();
+    };
+    document.addEventListener('click', (e) => {
+      if (!moreMenu.hidden && !moreMenu.contains(e.target) && e.target !== moreBtn) {
+        toggleMenu(false);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !moreMenu.hidden) {
+        toggleMenu(false);
+        moreBtn.focus();
+      }
+    });
+
+    const menuCopy = document.getElementById('menuCopyBtn');
+    if (menuCopy) menuCopy.onclick = () => {
+      toggleMenu(false);
+      document.getElementById('copyBtn').click();
+    };
+
+    const menuTestNotify = document.getElementById('menuTestNotifyBtn');
+    if (menuTestNotify) menuTestNotify.onclick = () => {
+      toggleMenu(false);
+      document.getElementById('testNotifyBtn').click();
+    };
+
+    const menuDownload = document.getElementById('menuDownloadBtn');
+    if (menuDownload) menuDownload.onclick = () => {
+      toggleMenu(false);
+      handleDownloadHistory();
+    };
+  }
 }
 
 document.getElementById('platforms').replaceChildren(...ORDER.map(() => h('div', { class: 'skeleton' })));
