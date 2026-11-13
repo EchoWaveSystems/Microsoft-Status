@@ -233,6 +233,7 @@ function render() {
   const failed = ORDER.filter((k) => feeds[k] && !feeds[k].ok);
 
   renderHero(plats, incidents, items, worst);
+  if (state.data?.git) renderGitStatus(state.data.git);
   renderPlatforms(plats);
   renderIncidents(incidents);
   renderConsumer(items.filter((i) => i.feed === 'm365Consumer'));
@@ -311,6 +312,21 @@ function sectionCallout(sec, primary) {
     sec.label ? h('h3', {}, sec.label) : null,
     ...sec.paras.map((p) => h('p', {}, p)),
     sec.bullets.length ? h('ul', {}, ...sec.bullets.map((b) => h('li', {}, b))) : null);
+}
+
+function renderGitStatus(git) {
+  const btn = document.getElementById('gitStatusBtn');
+  const countEl = document.getElementById('gitStatusCount');
+  if (!btn || !git) return;
+  const count = Number(git.count) || 0;
+  if (countEl) countEl.textContent = String(count);
+  btn.classList.toggle('has-changes', count > 0);
+  btn.classList.toggle('is-clean', count === 0);
+  btn.title = count === 1
+    ? '1 uncommitted change — click to inspect'
+    : count > 1
+      ? `${count} uncommitted changes — click to inspect`
+      : 'Git working tree clean — click to check';
 }
 
 function renderIncidents(incidents) {
@@ -492,11 +508,12 @@ function summaryText() {
 
 function initControls() {
   const root = document.documentElement;
-  document.getElementById('themeBtn').onclick = () => {
+  const toggleTheme = () => {
     const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     root.dataset.theme = dark ? 'light' : 'dark';
     try { localStorage.setItem('msb-theme', root.dataset.theme); } catch {}
   };
+  document.getElementById('themeBtn').onclick = toggleTheme;
 
   const notifyBtn = document.getElementById('notifyBtn');
   try { state.notify = localStorage.getItem('msb-notify') === '1'; } catch {}
@@ -549,6 +566,27 @@ function initControls() {
   const dlLink = document.getElementById('downloadHistoryLink');
   if (dlLink) dlLink.onclick = handleDownloadHistory;
 
+  const gitBtn = document.getElementById('gitStatusBtn');
+  if (gitBtn) {
+    gitBtn.onclick = async () => {
+      try {
+        const res = await fetch('/api/git-status');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderGitStatus(data);
+        if (!data.count) {
+          toast('Git status: Working tree clean (0 uncommitted changes).');
+        } else {
+          const preview = data.files.slice(0, 6).join('\n');
+          const more = data.files.length > 6 ? `\n...and ${data.files.length - 6} more` : '';
+          toast(`Git: ${data.count} uncommitted file${data.count === 1 ? '' : 's'}:\n${preview}${more}`);
+        }
+      } catch (e) {
+        toast(`Could not check git status: ${e.message}`);
+      }
+    };
+  }
+
   document.getElementById('refreshBtn').onclick = () => load(true);
   document.getElementById('copyBtn').onclick = async () => {
     try { await navigator.clipboard.writeText(summaryText()); toast('Summary copied to clipboard.'); }
@@ -579,6 +617,12 @@ function initControls() {
         moreBtn.focus();
       }
     });
+
+    const menuTheme = document.getElementById('menuThemeBtn');
+    if (menuTheme) menuTheme.onclick = () => {
+      toggleMenu(false);
+      toggleTheme();
+    };
 
     const menuCopy = document.getElementById('menuCopyBtn');
     if (menuCopy) menuCopy.onclick = () => {

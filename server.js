@@ -5,11 +5,27 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execSync } = require('node:child_process');
 
 let APP_VERSION = '1.0.0';
 try {
   APP_VERSION = process.env.APP_VERSION || require('./package.json').version || '1.0.0';
 } catch {}
+
+function getGitStatus() {
+  try {
+    const out = execSync('git status --porcelain', {
+      cwd: __dirname,
+      encoding: 'utf8',
+      timeout: 3000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const files = out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    return { ok: true, count: files.length, files };
+  } catch {
+    return { ok: false, count: 0, files: [] };
+  }
+}
 
 const PORT = Number(process.env.PORT) || 5050;
 // Loopback by default so nobody else on the network can reach the board. Set HOST=0.0.0.0 to share it,
@@ -252,7 +268,11 @@ const server = http.createServer(async (req, res) => {
       const wantsRefresh = searchParams.get('refresh') === '1' && Date.now() - lastPollStartedMs >= MIN_FORCED_REFRESH_MS;
       if (wantsRefresh || !lastPollAt) await pollOnce();
       const feeds = Object.fromEntries(Object.entries(FEEDS).map(([k, meta]) => [k, { ...meta, ...(cache[k] || { ok: false, error: 'not fetched yet' }) }]));
-      return sendJson(res, 200, { version: APP_VERSION, lastPollAt, pollSeconds: POLL_MS / 1000, feeds });
+      const git = getGitStatus();
+      return sendJson(res, 200, { version: APP_VERSION, lastPollAt, pollSeconds: POLL_MS / 1000, feeds, git });
+    }
+    if (pathname === '/api/git-status') {
+      return sendJson(res, 200, getGitStatus());
     }
     if (pathname === '/api/history') {
       return sendJson(res, 200, { events: history.events.slice().reverse() });

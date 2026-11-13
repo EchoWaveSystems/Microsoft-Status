@@ -53,6 +53,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .ms-logo i:nth-child(1) { background: #f25022; } .ms-logo i:nth-child(2) { background: #7fba00; }
 .ms-logo i:nth-child(3) { background: #00a4ef; } .ms-logo i:nth-child(4) { background: #ffb900; }
 .actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.git-status-btn {
+  height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); display: inline-flex; align-items: center;
+  gap: 6px; cursor: pointer; font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  flex: none; transition: background .15s, border-color .15s, color .15s;
+}
+.git-status-btn:hover { background: var(--surface-2); }
+.git-status-btn svg { width: 16px; height: 16px; flex: none; stroke-width: 2.2; }
+.git-status-btn.has-changes {
+  background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); color: var(--warn);
+}
+.git-status-btn.is-clean {
+  background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok) 35%, var(--border)); color: var(--ok);
+}
 .icon-btn, .refresh-btn {
   width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); display: grid; place-items: center; cursor: pointer; position: relative; padding: 0;
@@ -193,7 +207,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 40px; display: grid
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 32px; }
 
 .toast-host { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: calc(100vw - 32px); }
-.toast { background: var(--text); color: var(--bg); padding: 11px 16px; border-radius: 12px; font-size: 14px; box-shadow: var(--shadow); animation: rise .25s ease-out; max-width: 380px; }
+.toast { background: var(--text); color: var(--bg); padding: 11px 16px; border-radius: 12px; font-size: 14px; box-shadow: var(--shadow); animation: rise .25s ease-out; max-width: 380px; white-space: pre-line; }
 @keyframes rise { from { transform: translateY(8px); opacity: 0; } }
 
 .skeleton { background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 16px; min-height: 150px; }
@@ -234,12 +248,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16
   .brand-title { font-size: 15px; }
   .brand-sub { font-size: 12px; }
   .actions { gap: 4px; }
+  .git-status-btn { height: 34px; padding: 0 7px; font-size: 12px; border-radius: 8px; gap: 4px; }
+  .git-status-btn svg { width: 14px; height: 14px; }
   .icon-btn, .refresh-btn { width: 34px; height: 34px; border-radius: 8px; }
   .icon-btn svg { width: 16px; height: 16px; }
   .refresh-btn .ring { inset: 1px; width: 30px; height: 30px; }
   .refresh-icon { width: 14px; height: 14px; }
   .more-wrap { display: block; }
-  #copyBtn, #testNotifyBtn, #downloadHistoryBtn { display: none; }
+  #copyBtn, #testNotifyBtn, #downloadHistoryBtn, #themeBtn { display: none; }
   .hero { padding: 20px; } .hero-icon { width: 46px; height: 46px; }
   .kpis { grid-template-columns: 1fr 1fr; } .kpi-value { font-size: 22px; }
   .inc-head, .inc-body { padding-left: 16px; padding-right: 16px; }
