@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Microsoft Status Board</title>
   <link rel="icon" id="favicon" href="data:," />
-  <link rel="stylesheet" href="styles.css?v=1.0.1" />
-  <script src="theme-init.js?v=1.0.1"></script>
+  <link rel="stylesheet" href="styles.css?v={{VERSION}}" />
+  <script src="theme-init.js?v={{VERSION}}"></script>
 </head>
 <body>
   <header class="topbar">
@@ -83,9 +83,10 @@
     Data from <a href="https://status.cloud.microsoft/" target="_blank" rel="noopener">status.cloud.microsoft</a>.
     Unofficial viewer; for tenant-specific health use the
     <a href="https://admin.microsoft.com/servicestatus" target="_blank" rel="noopener">Microsoft 365 admin center</a>.
+    <span class="muted">· v{{VERSION}}</span>
   </footer>
 
   <div class="toast-host" id="toasts"></div>
-  <script src="app.js?v=1.0.1"></script>
+  <script src="app.js?v={{VERSION}}"></script>
 </body>
 </html>

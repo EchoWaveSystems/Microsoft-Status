@@ -6,6 +6,11 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
+let APP_VERSION = '1.0.0';
+try {
+  APP_VERSION = process.env.APP_VERSION || require('./package.json').version || '1.0.0';
+} catch {}
+
 const PORT = Number(process.env.PORT) || 5050;
 // Loopback by default so nobody else on the network can reach the board. Set HOST=0.0.0.0 to share it,
 // and list the names people will use in ALLOWED_HOSTS (see README).
@@ -201,7 +206,8 @@ function serveStatic(pathname, res) {
   let urlPath;
   try { urlPath = decodeURIComponent(pathname); } catch { return sendJson(res, 400, { error: 'bad request' }); }
   if (urlPath.includes('\0')) return sendJson(res, 400, { error: 'bad request' });
-  const file = path.resolve(PUBLIC_DIR, '.' + path.posix.normalize('/' + (urlPath === '/' ? 'index.html' : urlPath)));
+  const isHtml = urlPath === '/' || urlPath === '/index.html';
+  const file = path.resolve(PUBLIC_DIR, '.' + path.posix.normalize('/' + (isHtml ? 'index.html' : urlPath)));
   // Must be strictly inside public/ — a plain startsWith would also accept a sibling such as "public-old".
   const type = MIME[path.extname(file).toLowerCase()];
   if (!file.startsWith(PUBLIC_DIR + path.sep) || !type) return sendJson(res, 404, { error: 'not found' });
@@ -210,7 +216,9 @@ function serveStatic(pathname, res) {
     fs.readFile(file, (err2, buf) => {
       if (err2) return sendJson(res, 404, { error: 'not found' });
       const extra = type === 'image/svg+xml' ? { 'content-security-policy': SVG_CSP } : {};
-      send(res, 200, { 'content-type': type, 'cache-control': 'no-cache', ...extra }, buf);
+      const cacheControl = isHtml ? 'no-cache, no-store, must-revalidate' : 'no-cache';
+      const body = isHtml ? buf.toString('utf8').replace(/\{\{VERSION\}\}/g, APP_VERSION) : buf;
+      send(res, 200, { 'content-type': type, 'cache-control': cacheControl, ...extra }, body);
     });
   });
 }
@@ -244,7 +252,7 @@ const server = http.createServer(async (req, res) => {
       const wantsRefresh = searchParams.get('refresh') === '1' && Date.now() - lastPollStartedMs >= MIN_FORCED_REFRESH_MS;
       if (wantsRefresh || !lastPollAt) await pollOnce();
       const feeds = Object.fromEntries(Object.entries(FEEDS).map(([k, meta]) => [k, { ...meta, ...(cache[k] || { ok: false, error: 'not fetched yet' }) }]));
-      return sendJson(res, 200, { lastPollAt, pollSeconds: POLL_MS / 1000, feeds });
+      return sendJson(res, 200, { version: APP_VERSION, lastPollAt, pollSeconds: POLL_MS / 1000, feeds });
     }
     if (pathname === '/api/history') {
       return sendJson(res, 200, { events: history.events.slice().reverse() });
@@ -268,7 +276,7 @@ server.maxHeadersCount = 50;
 
 server.listen(PORT, HOST, () => {
   const shown = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
-  console.log(`Microsoft Status Board → http://${shown}:${PORT}  (polling every ${POLL_MS / 1000}s)`);
+  console.log(`Microsoft Status Board v${APP_VERSION} → http://${shown}:${PORT}  (polling every ${POLL_MS / 1000}s)`);
   if (shown !== HOST) console.log(`[security] listening on all interfaces; accepted Host names: ${[...ALLOWED_HOSTS].join(', ')}`);
   pollOnce();
   setInterval(pollOnce, POLL_MS);
