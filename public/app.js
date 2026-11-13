@@ -484,7 +484,7 @@ function tick() {
   document.getElementById('ringFill').style.strokeDashoffset = String(97.4 * (1 - frac));
   tickCountdowns();
   if (state.data) document.getElementById('refreshedLabel').textContent =
-    `Updated ${ago(validDate(state.data.lastPollAt))} · next refresh in ${Math.ceil(left / 1000)}s`;
+    `Updated ${ago(validDate(state.data.lastPollAt))} · next in ${Math.ceil(left / 1000)}s`;
   if (left === 0 && state.nextRefreshAt) { state.nextRefreshAt = 0; load(); }
 }
 
