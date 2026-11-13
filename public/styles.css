@@ -42,7 +42,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .topbar {
   position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between;
   gap: 12px; padding: 12px max(16px, calc((100vw - 1200px) / 2));
-  background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
@@ -171,13 +171,29 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 40px; display: grid
 .affected-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .affected-head h3 { font-size: 15px; font-weight: 600; }
 .search { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 14px; width: min(260px, 100%); }
-.affected { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 10px; }
-.svc { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); text-align: left; padding: 11px 13px; cursor: pointer; color: inherit; font: inherit; display: grid; gap: 4px; align-content: start; }
+.affected { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+.svc {
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  text-align: left; padding: 12px 14px; cursor: pointer; color: inherit; font: inherit;
+  display: grid; gap: 6px; align-content: start; transition: border-color .15s, background .15s, box-shadow .15s;
+}
 .svc:hover { border-color: var(--accent); }
-.svc-name { font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; --s: 24px; }
-.svc-desc { font-size: 13px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.svc.open { grid-column: 1 / -1; border-color: var(--accent); }
-.svc.open .svc-desc { -webkit-line-clamp: unset; color: var(--text); }
+.svc:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.svc-name { font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; --s: 24px; line-height: 1.3; }
+.svc-desc {
+  font-size: 13px; color: var(--muted); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.svc.open {
+  border-color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.svc.open .svc-desc {
+  -webkit-line-clamp: unset;
+  display: block;
+  color: var(--text);
+}
 .empty { padding: 26px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: 16px; }
 .empty svg { width: 28px; height: 28px; color: var(--ok); display: block; margin: 0 auto 6px; }
 

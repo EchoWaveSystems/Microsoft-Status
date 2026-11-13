@@ -128,49 +128,90 @@ function toLines(msg) {
   if (!msg) return [];
   let text = msg;
   if (/<[a-z][\s\S]*>/i.test(msg)) {
-    const doc = new DOMParser().parseFromString(msg, 'text/html');
-    const BLOCK = /^(DIV|P|LI|UL|OL|H[1-6]|TR|TABLE|BLOCKQUOTE)$/;
-    const out = [];
-    (function walk(n) {
-      for (const c of n.childNodes) {
-        if (c.nodeType === 3) out.push(c.nodeValue);
-        else if (c.nodeName === 'BR') out.push('\n');
-        else if (c.nodeType === 1) {
-          const block = BLOCK.test(c.nodeName);
-          if (block) out.push('\n');
-          if (c.nodeName === 'LI') out.push('- ');
-          walk(c);
-          if (block) out.push('\n');
-        }
-      }
-    })(doc.body);
-    text = out.join('');
+    text = text.replace(/&nbsp;/gi, ' ').replace(/\u00a0/g, ' ');
+    text = text.replace(/<li[^>]*>/gi, '\n- ');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/(div|p|li|h[1-6]|tr|blockquote)>/gi, '\n');
+    text = text.replace(/<[^>]+>/g, '');
   }
-  return text.replace(/ /g, ' ').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return text.replace(/\u00a0/g, ' ').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 }
 
 const LABEL = /^(user impact|more info|current status|scope of impact|root cause|preliminary root cause|next update by|final status|start time|end time|workaround|impact|estimated time to resolve|title)\s*:\s*(.*)$/i;
-const BULLET_SVC = /^[-•*]\s*([^:]{2,80}?):\s+(.+)$/;
+const BULLET_SVC = /^[-•*]\s*([^:]{2,80}?):\s*(.*)$/;
 const BULLET = /^[-•*]\s*(.+)$/;
 
 function parseMessage(msg) {
   const sections = [];
   const affected = [];
-  let cur = null;
-  for (const line of toLines(msg)) {
+  let curSection = null;
+  let curSvc = null;
+  let curBullet = null;
+
+  for (const rawLine of toLines(msg)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
     const lab = line.match(LABEL);
     if (lab) {
-      cur = { label: lab[1].replace(/\b\w/g, (c) => c.toUpperCase()), paras: [], bullets: [] };
-      sections.push(cur);
-      if (lab[2]) cur.paras.push(lab[2]);
+      curSvc = null;
+      curBullet = null;
+      curSection = { label: lab[1].replace(/\b\w/g, (c) => c.toUpperCase()), paras: [], bullets: [] };
+      sections.push(curSection);
+      if (lab[2].trim()) curSection.paras.push(lab[2].trim());
       continue;
     }
+
     const svc = line.match(BULLET_SVC);
-    if (svc) { affected.push({ name: svc[1].trim(), desc: svc[2].trim() }); continue; }
-    if (!cur) { cur = { label: '', paras: [], bullets: [] }; sections.push(cur); }
+    if (svc) {
+      curBullet = null;
+      curSvc = { name: svc[1].trim(), desc: svc[2].trim() };
+      affected.push(curSvc);
+      continue;
+    }
+
     const b = line.match(BULLET);
-    if (b) cur.bullets.push(b[1]); else cur.paras.push(line);
+    if (b) {
+      curSvc = null;
+      if (!curSection) {
+        curSection = { label: '', paras: [], bullets: [] };
+        sections.push(curSection);
+      }
+      curBullet = { text: b[1].trim() };
+      curSection.bullets.push(curBullet.text);
+      continue;
+    }
+
+    // Handles line where service name wrapped across lines before colon:
+    // e.g. bullet was "- Microsoft Defender for Office" and next line is "365: Failures..."
+    if (curBullet && /^([^:]{1,30}):\s*(.*)$/.test(line)) {
+      const m = line.match(/^([^:]{1,30}):\s*(.*)$/);
+      const fullName = (curBullet.text + ' ' + m[1]).trim();
+      curSection.bullets.pop();
+      curBullet = null;
+      curSvc = { name: fullName, desc: m[2].trim() };
+      affected.push(curSvc);
+      continue;
+    }
+
+    // Continuation lines for whatever was active
+    if (curSvc) {
+      curSvc.desc = (curSvc.desc ? curSvc.desc + ' ' : '') + line;
+    } else if (curBullet) {
+      curBullet.text += ' ' + line;
+      curSection.bullets[curSection.bullets.length - 1] = curBullet.text;
+    } else if (curSection) {
+      if (curSection.paras.length) {
+        curSection.paras[curSection.paras.length - 1] += ' ' + line;
+      } else {
+        curSection.paras.push(line);
+      }
+    } else {
+      curSection = { label: '', paras: [line], bullets: [] };
+      sections.push(curSection);
+    }
   }
+
   const take = (name) => {
     const i = sections.findIndex((s) => s.label.toLowerCase() === name);
     return i < 0 ? null : sections.splice(i, 1)[0];
@@ -352,8 +393,16 @@ function renderIncidents(incidents) {
     let affectedBlock = null;
     if (p.affected.length) {
       const grid = h('div', { class: 'affected' }, ...p.affected.map((a) => h('button', {
-        class: 'svc', 'data-q': `${a.name} ${a.desc}`.toLowerCase(),
-        onclick: (e) => e.currentTarget.classList.toggle('open'),
+        class: 'svc',
+        type: 'button',
+        title: 'Click to expand or collapse details',
+        'aria-expanded': 'false',
+        'data-q': `${a.name} ${a.desc}`.toLowerCase(),
+        onclick: (e) => {
+          const btn = e.currentTarget;
+          const open = btn.classList.toggle('open');
+          btn.setAttribute('aria-expanded', String(open));
+        },
       }, h('span', { class: 'svc-name' }, productIcon(a.name), a.name), h('span', { class: 'svc-desc' }, a.desc))));
       const search = h('input', {
         class: 'search', type: 'search', placeholder: `Filter ${p.affected.length} services…`,
